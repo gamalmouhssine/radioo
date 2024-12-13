@@ -1,0 +1,169 @@
+﻿@page "/"
+@using radioo.Models
+@using radioo.Services
+@inject RadioApiService RadioService
+@inject IJSRuntime JSRuntime
+
+<div class="app-container">
+    <div class="header">
+        <div class="logo">
+            <i class="fas fa-broadcast-tower"></i>
+            <h1>World Radio</h1>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="country-selector">
+            <div class="select-wrapper">
+                <i class="fas fa-globe-americas"></i>
+                <select @onchange="OnCountrySelected">
+                    <option value="">Select your country</option>
+                    @foreach (var country in countries)
+                    {
+                        <option value="@country.Name">@country.Name (@country.StationCount stations)</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        @if (selectedCountry != null)
+        {
+            <div class="stations-container">
+                <h2>
+                    <i class="fas fa-radio"></i>
+                    Radio Stations in @selectedCountry
+                </h2>
+                <div class="stations-grid">
+                    @foreach (var station in stations)
+                    {
+                        <div class="station-card @(currentStation?.StationUuid == station.StationUuid ? "playing" : "")"
+                             @onclick="() => PlayStation(station)">
+                            <div class="station-icon">
+                                <i class="fas fa-broadcast-tower"></i>
+                            </div>
+                            <div class="station-info">
+                                <h3>@station.Name</h3>
+                                <div class="station-meta">
+                                    <span><i class="fas fa-signal"></i> @station.Bitrate kbps</span>
+                                    <span><i class="fas fa-heart"></i> @station.Votes votes</span>
+                                </div>
+                                <div class="station-tags">
+                                    @foreach (var tag in (station.Tags ?? "").Split(',').Take(3))
+                                    {
+                                        if (!string.IsNullOrWhiteSpace(tag))
+                                        {
+                                            <span class="tag">@tag.Trim()</span>
+                                        }
+                                    }
+                                </div>
+                            </div>
+                            @if (currentStation?.StationUuid == station.StationUuid)
+                            {
+                                <div class="playing-indicator">
+                                    @if (isLoading)
+                                    {
+                                        <div class="loading-wave">
+                                            <div class="wave"></div>
+                                            <div class="wave"></div>
+                                            <div class="wave"></div>
+                                            <div class="wave"></div>
+                                            <div class="wave"></div>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="equalizer">
+                                            <div class="bar"></div>
+                                            <div class="bar"></div>
+                                            <div class="bar"></div>
+                                            <div class="bar"></div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="player-container @(currentStation != null ? "active" : "")">
+        <audio id="audioPlayer" controls>
+            Your browser does not support the audio element.
+        </audio>
+        @if (currentStation != null)
+        {
+            <div class="current-playing">
+                <div class="station-details">
+                    <h4>Now Playing</h4>
+                    <h3>@currentStation.Name</h3>
+                </div>
+                @if (errorMessage != null)
+                {
+                    <div class="error-message">
+                        <i class="fas fa-exclamation-circle"></i>
+                        @errorMessage
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<Country> countries = new();
+    private List<RadioStation> stations = new();
+    private string selectedCountry;
+    private RadioStation currentStation;
+    private bool isLoading = false;
+    private string errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        countries = await RadioService.GetCountriesAsync();
+        await JSRuntime.InvokeVoidAsync("initializeAudioPlayer");
+    }
+
+    private async Task OnCountrySelected(ChangeEventArgs e)
+    {
+        selectedCountry = e.Value?.ToString();
+        if (!string.IsNullOrEmpty(selectedCountry))
+        {
+            stations = await RadioService.GetStationsByCountryAsync(selectedCountry);
+        }
+    }
+
+    private async Task PlayStation(RadioStation station)
+    {
+        try
+        {
+            errorMessage = null;
+            isLoading = true;
+
+            if (currentStation?.StationUuid == station.StationUuid)
+            {
+                await JSRuntime.InvokeVoidAsync("stopRadio");
+                currentStation = null;
+            }
+            else
+            {
+                currentStation = station;
+                // Use UrlResolved first, fallback to Url if needed
+                string streamUrl = !string.IsNullOrEmpty(station.UrlResolved) ? station.UrlResolved : station.Url;
+                Console.WriteLine($"Attempting to play: {streamUrl}");
+                await JSRuntime.InvokeVoidAsync("playRadio", streamUrl);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error playing station: {ex.Message}";
+            Console.WriteLine($"Error: {ex}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+}

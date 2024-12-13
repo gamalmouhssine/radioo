@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>radioo</title>
+    <base href="/" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
+    <link rel="stylesheet" href="css/app.css" />
+    <link rel="stylesheet" href="radioo.styles.css" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+</head>
+
+<body>
+
+    <div class="status-bar-safe-area"></div>
+
+    <div id="app">Loading...</div>
+
+    <div id="blazor-error-ui">
+        An unhandled error has occurred.
+        <a href="" class="reload">Reload</a>
+        <a class="dismiss">🗙</a>
+    </div>
+
+    <script src="_framework/blazor.webview.js" autostart="false"></script>
+
+</body>
+
+</html>
+
+<script>
+    window.initializeAudioPlayer = function () {
+        window.audioPlayer = document.getElementById('audioPlayer');
+
+        // Add event listeners for debugging
+        window.audioPlayer.addEventListener('playing', function () {
+            console.log('Audio is playing');
+        });
+
+        window.audioPlayer.addEventListener('error', function (e) {
+            console.error('Audio error:', e);
+        });
+
+        window.audioPlayer.addEventListener('waiting', function () {
+            console.log('Audio is buffering');
+        });
+    }
+
+    window.playRadio = function (url) {
+        if (window.audioPlayer) {
+            console.log('Setting audio source:', url);
+            window.audioPlayer.src = url;
+
+            // Create a promise to play
+            const playPromise = window.audioPlayer.play();
+
+            if (playPromise !== undefined) {
+                playPromise.then(_ => {
+                    console.log('Audio playback started successfully');
+                })
+                    .catch(error => {
+                        console.error('Audio playback failed:', error);
+                    });
+            }
+        }
+    }
+
+    window.stopRadio = function () {
+        if (window.audioPlayer) {
+            window.audioPlayer.pause();
+            window.audioPlayer.currentTime = 0;
+            window.audioPlayer.src = '';
+            console.log('Audio stopped');
+        }
+    }
+</script>
